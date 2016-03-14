@@ -1,0 +1,100 @@
+---
+title: 'Mortality Rates by Year'
+output:
+  html_document:
+    css: ./lab.css
+    highlight: pygments
+    theme: cerulean
+  pdf_document: default
+---
+0.  The World Health Organization publishes data sets which track mortality rates by age group for the years 2013, 2012, 
+2000 and 1990.  This data set is further catagorized by mortality criteria with a 3 character designation.  This analysis
+uses "nqx" or the probability of dying within an age group bracket from the global data set provided. 
+
+  http://apps.who.int/gho/data/view.main.LIFEWBGLOBAL?lang=en
+  
+The World Health Organization Characterizes the raw data used in this analysis as "Mortality and global health estimates""
+from the Life tables by World Bank Income Group Global.
+
+This rudimentary analysis looks at the 22 age group brackets for each of the 4 years considered in the WHO's super-set.  
+A historgram of mortality and a boxplot contingencies matrix of age bracket to mortality faceted by year is shown.
+
+
+```{r load-pkgs, eval=TRUE, echo=FALSE, message=FALSE}
+library('dplyr')
+library('tidyr')
+library("knitr")
+library("ggplot2")
+```
+
+1. Load Data Frame from file
+```{r load-text-by-line, eval=TRUE}
+l <- read.csv(
+              "/Users/scottkarr/IS607Spring2016/project2/more/mortality.csv",
+              sep=",",
+              na.strings = "",
+              blank.lines.skip = TRUE,
+              col.names = c("Indicator", "Age Group", 
+                                "Both Sexes", "Female","Male",
+                                "Both Sexes", "Female","Male",
+                                "Both Sexes", "Female","Male",
+                                "Both Sexes", "Female","Male"
+              ),
+              stringsAsFactors=FALSE, 
+              header=FALSE
+    )
+df = data.frame(l)
+# rows 1 & 2 contain header names
+names(df) <- c('Indicator', 'Age.Group',paste(df[1,3:14], df[2,3:14]))
+# remove rows 1 & 2
+df <- df[-c(1,2),]
+names(df) <- gsub("Both sexes:", "", names(df))
+#kable(head(df), align = 'l')
+```
+
+2.  Tidy data and analyze--let's look probability of mortality by age bracket
+```{r tidy-data, eval=TRUE}
+df <- df %>% 
+  select(Indicator, Age.Group, ends_with("sexes"))
+# return only rows with mortality range indicator nqx
+df <- df %>%  
+  filter(grepl("nqx", Indicator))
+# no longer need Indicator
+df <- df %>% 
+  select(Age.Group, ends_with("sexes"))
+# gather morphs data from wide to long format
+df_tidy <- df %>% 
+  gather(year, rates, -Age.Group) %>%
+  arrange(Age.Group)
+# separate year into year and gender 
+df_tidy <- df_tidy %>%
+  separate(year, into = c("year", "gender"), sep = "\\s") 
+# dispense with gender as a category, we are looking at combined gender mortality
+df_tidy <- df_tidy %>% 
+  select(Age.Group, year, rates)
+# make year and rates numeric
+df_tidy$year <- as.numeric(df_tidy$year)
+df_tidy$rates <- as.numeric(df_tidy$rates)
+# make Age.Group 100+ years consistent so it sorts correctly
+df_tidy[13:16,1] <- rep('100-100+',4)
+# present data nicely
+kable(head(df_tidy), align = 'l')
+```
+
+3.  Presentation
+```{r present, eval=TRUE}
+hist(df_tidy$rates)
+
+boxplot(
+      df_tidy$rates ~  df_tidy$Age.Group,
+        xlab="Increasing Age Group",
+        main="Mortality Rates 4 years"
+)
+
+bp <- ggplot(data=df_tidy, aes(x=Age.Group, y=rates)) +
+      geom_boxplot() +
+      geom_text(aes(label = Age.Group, x = Age.Group, y = rates), size=.1, vjust=1, hjust=0.5)
+
+# Split in horizontal direction
+bp + facet_grid(. ~ year)
+```

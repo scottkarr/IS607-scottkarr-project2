@@ -1,0 +1,102 @@
+---
+title: 'Population Trends by Region'
+output:
+  html_document:
+    css: ./lab.css
+    highlight: pygments
+    theme: cerulean
+  pdf_document: default
+---
+0.  The World Bank publishes data sets which track the population of countries and pre-defined regions over a period of 55 years.
+    The regional data is classified into socio-economic catagories so comparing this data may tell us something about trends
+    underlying those catagories.
+
+  http://data.worldbank.org/indicator/SP.POP.TOTL
+  
+The World Bank defines total population as follows . . .
+
+Total population is based on the de facto definition of population, which counts all residents regardless of legal status or       citizenship--except for refugees not permanently settled in the country of asylum, who are generally considered part of the 
+population of their country of origin. The values shown are midyear estimates.
+
+This rudimentary analysis looks at the 26 regional data sets contained in the World Bank's super-set, presents a historgram
+of decreasing population counts by region and scatterplots of each region's popuation trend faceted by region.
+
+
+
+```{r load-pkgs, eval=TRUE, echo=FALSE, message=FALSE}
+library('dplyr')
+library('tidyr')
+library("knitr")
+library("ggplot2")
+```
+
+
+1. Load Data Frame from file
+```{r load-text-by-line, eval=TRUE}
+l <- read.csv(
+              "/Users/scottkarr/IS607Spring2016/project2/more/population.csv",
+              sep=",",
+              na.strings = "",
+              blank.lines.skip = TRUE,
+              #col.names = c("Quintile", "West",  "South", "Midwest","Northeast", "US Overall"),
+              stringsAsFactors=FALSE
+    )
+df = data.frame(l)
+names(df) <- gsub("X", "", names(df))
+#kable(head(df), align = 'l')
+```
+
+2.  Tidy data
+```{r tidy-data, eval=TRUE}
+# filter columns
+df <- df %>% 
+  select(Country.Name, Country.Code, 5:ncol(df))
+# gather morphs data from wide to long format
+df_tidy <- df %>% 
+  gather(Year, Population, -Country.Name, -Country.Code) %>%
+  arrange(Country.Name, Year, Population)
+# make year and population numerics
+df_tidy$Year <- as.numeric(df_tidy$Year)
+df_tidy$Population <- as.numeric(df_tidy$Population)
+# remove na rows
+df_tidy <- df_tidy %>% na.omit()
+# present data nicely
+kable(head(df_tidy), align = 'l')
+```
+
+3.  Analyze data - let's look only at regional population trends
+```{r analysis-domain, eval=TRUE}
+# filter only on regional population data sets
+df_regions <- 
+  filter(
+    df_tidy %>% select(Country.Name, Country.Code) %>% distinct()
+    , 
+      grepl(' all', Country.Name) | 
+      grepl('states', Country.Name) | 
+      grepl('members', Country.Name) |     
+      grepl('poor', Country.Name) |         
+      grepl('conflict', Country.Name) |             
+      grepl(':', Country.Name) |             
+      grepl('income', Country.Name) |
+      grepl('only', Country.Name) |
+      grepl('small', Country.Name)    
+  )
+# display key codes for regions
+kable(df_regions, align = 'l')
+
+# filter the presentation data set by these "target" regions
+target <- df_regions$Country.Code
+df_regions <- df_tidy %>% filter (Country.Code %in% target)
+```
+
+4.  Presentation
+```{r plot, eval=TRUE}
+# histogram of population by regions
+ggplot(df_regions) + geom_histogram(aes(x = Population))
+# regional scatterplot of population by regions
+ggplot(data = df_regions, aes(x = Year, y = Population)) +
+  geom_point() + facet_wrap( ~ Country.Code )
+```
+
+
+

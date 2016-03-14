@@ -1,0 +1,72 @@
+---
+title: 'GINI Index for Regional US income'
+output:
+  html_document:
+    css: ./lab.css
+    highlight: pygments
+    theme: cerulean
+  pdf_document: default
+---
+0.  The Census Bureau publishes data sets which tracks the GINI index at different levels of geographic granularity . . . such as state, metropolitan statical area and congressional district.  This exercise cleans up "untidy" contingency tables for GINI by region.  Census
+data at various levels can be searched under the American Community Survey for the year being sought by under the subject of income, by
+either individual or family and at a chosen geographic level  The census provides the followng tool for acquiring data sets . . .
+
+  http://factfinder.census.gov/faces/nav/jsf/pages/guided_search.xhtml
+
+
+GINI is an internationally recognized measure of income dispersion within a specified geographic area.  Income inequality has been a topical discussion in recent years and this is a key measure.
+
+
+```{r load-pkgs, eval=TRUE, echo=FALSE, message=FALSE}
+library('ggplot2')
+library('knitr')
+library('tidyr')
+library('dplyr')
+```
+
+1. Load Data Frame from file
+```{r load-text-by-line, eval=TRUE}
+l <- read.csv(
+              "/Users/scottkarr/IS607Spring2016/project2/more/GINI-2014-Region-untidy.csv",
+              sep=",",
+              na.strings = "",
+              blank.lines.skip = TRUE,
+              col.names = c("Quintile", "West",  "South", "Midwest","Northeast", "US Overall"),
+              stringsAsFactors=FALSE
+    )
+df = data.frame(l)
+```
+
+2.  Tidy data
+```{r tidy-data, eval=TRUE}
+# remove extraneous rows
+# derived fields can be calculated from raw data
+df <- df[-c(1,7),]
+# gather morphs data from wide to long format
+df_tidy <- df %>% 
+  gather(Region, Gini, -Quintile) %>%
+  arrange(Quintile, Region, Gini)
+# organize the final data sets
+df_tidy <- df_tidy %>%
+  select(Region, Quintile, Gini) %>%
+  arrange(Region, Quintile, Gini)
+# present data nicely
+kable(df_tidy, align = 'l')
+```
+
+
+3. Analysis - Group by region and calculate statistics
+```{r analyze, eval=TRUE}
+df_tidy_grouped= group_by(df_tidy, Region)
+df_stats <-summarise(df_tidy_grouped, mean_gini = mean(Gini), std_gini = sd(Gini))
+```
+
+
+4.  Presentation
+```{r plot, eval=TRUE}
+# histogram of population by regions
+ggplot(df_tidy) + geom_histogram(aes(x = Gini))
+# regional scatterplot of population by regions
+ggplot(data = df_tidy, aes(x = Quintile, y = Gini)) +
+  geom_point() + facet_wrap( ~ Region )
+```
